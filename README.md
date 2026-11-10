@@ -20,8 +20,10 @@ GitHub Actions 每 6 小时把上游两套公开 depot 密钥库合并成一份�
 
 `data` 分支：
 
-- `depotkeys.json` — 合并后的密钥库（`{"<depot/appid>": "<64位hex>"}`）
-- `meta.json` — 更新时间、条数、各源状态
+- `depotkeys.json` — 合并后的密钥库（`{"<depot/appid>": "<64位hex>"}`），工具优先用这份
+- `meta.json` — 更新时间、各源条数/非空条数、sha256
+
+合并结果已经包含 Sudama 的全部 key（实测合并条数 == Sudama 条数），所以不再单独存一份 sudama.json。
 
 访问地址（国内建议走代理）：
 

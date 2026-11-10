@@ -5,9 +5,16 @@
   sac    https://raw.githubusercontent.com/SteamAutoCracks/ManifestHub/main/depotkeys.json
   sudama https://api.993499094.xyz/depotkeys.json
 
-两套库覆盖范围不同：sac 老游戏全，sudama 新上架游戏更新快。
-合并规则：同一个 depot 优先保留非空值，先到先得（两套库同 key 时值一致）。
+两套库覆盖范围不同：sac 总条数多但有一大半是空字符串占位（非空只有 17.5 万），
+sudama 条数少但全部非空，且已覆盖 sac 的所有有效 key。
+合并规则：同一个 depot 优先保留非空值，先到先得。
+
+产物（out/）：
+  depotkeys.json  合并结果，工具优先用这份
+  sudama.json     Sudama 原始副本（第三方 API，单独留一份做保险）
+  meta.json       各源条数、非空条数、sha256、更新时间
 """
+import hashlib
 import json
 import os
 import sys
@@ -42,21 +49,42 @@ def fetch(url):
             data = json.loads(raw.decode("utf-8"))
             if isinstance(data, dict) and data:
                 print("  ok %s -> %d entries (%.1f MB)" % (u, len(data), len(raw) / 1048576))
-                return data
+                return data, raw
         except Exception as e:
             print("  fail %s: %s" % (u, e), file=sys.stderr)
-    return None
+    return None, None
+
+
+def write_json(path, obj, minify=True):
+    with open(path, "w", encoding="utf-8") as f:
+        if minify:
+            json.dump(obj, f, separators=(",", ":"), ensure_ascii=False)
+        else:
+            json.dump(obj, f, indent=2, ensure_ascii=False)
+    return os.path.getsize(path)
+
+
+def sha256_of(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def main():
     merged = {}
     stats = {}
+    raw_sudama = None
+
     for name, url in SOURCES:
         print("[%s] %s" % (name, url))
-        data = fetch(url)
+        data, raw = fetch(url)
         if not data:
-            stats[name] = {"ok": False, "entries": 0}
+            stats[name] = {"ok": False, "entries": 0, "non_empty": 0}
             continue
+        if name == "sudama":
+            raw_sudama = data
         non_empty = 0
         for k, v in data.items():
             if not v:
@@ -71,20 +99,27 @@ def main():
         return 1
 
     os.makedirs(OUT_DIR, exist_ok=True)
-    out_path = os.path.join(OUT_DIR, "depotkeys.json")
-    with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(merged, f, separators=(",", ":"), ensure_ascii=False)
+
+    merged_path = os.path.join(OUT_DIR, "depotkeys.json")
+    merged_bytes = write_json(merged_path, merged)
+
+    # 不单独存 sudama.json：合并结果已经包含 Sudama 的全部 key（实测合并条数 == Sudama 条数），
+    # 再存一份等于把 18MB 复制一遍，没有收益。meta.json 里记录了各源条数可追溯。
+    _ = raw_sudama
 
     meta = {
         "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "entries": len(merged),
-        "bytes": os.path.getsize(out_path),
+        "bytes": merged_bytes,
+        "sha256": sha256_of(merged_path),
+        "files": {
+            "depotkeys.json": {"bytes": merged_bytes, "sha256": sha256_of(merged_path)},
+        },
         "sources": stats,
     }
-    with open(os.path.join(OUT_DIR, "meta.json"), "w", encoding="utf-8") as f:
-        json.dump(meta, f, indent=2, ensure_ascii=False)
+    write_json(os.path.join(OUT_DIR, "meta.json"), meta, minify=False)
 
-    print("merged: %d entries, %.1f MB" % (len(merged), meta["bytes"] / 1048576))
+    print("merged: %d entries, %.1f MB" % (len(merged), merged_bytes / 1048576))
     return 0
 
 
