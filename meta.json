@@ -1,0 +1,24 @@
+{
+  "updated_at": "2026-11-14T13:19:44Z",
+  "entries": 241899,
+  "bytes": 18531765,
+  "sha256": "8fa4d702f831b64cad4040586204792473ddc935868fb4814be7a01e571ff62b",
+  "files": {
+    "depotkeys.json": {
+      "bytes": 18531765,
+      "sha256": "8fa4d702f831b64cad4040586204792473ddc935868fb4814be7a01e571ff62b"
+    }
+  },
+  "sources": {
+    "sac": {
+      "ok": true,
+      "entries": 288381,
+      "non_empty": 175781
+    },
+    "sudama": {
+      "ok": true,
+      "entries": 241899,
+      "non_empty": 241899
+    }
+  }
+}
